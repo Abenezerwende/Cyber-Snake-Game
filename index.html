@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cyber Snake</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Press+Start+2P&display=swap');
+        
+        body {
+            font-family: 'Orbitron', sans-serif;
+            background-color: #0a0a1a;
+            color: #00ff9d;
+            overflow: hidden;
+            user-select: none;
+        }
+        
+        #game-container {
+            position: relative;
+            border: 2px solid #6e00ff;
+            box-shadow: 0 0 20px #6e00ff, inset 0 0 20px rgba(110, 0, 255, 0.3);
+        }
+        
+        #game-canvas {
+            background-color: rgba(10, 5, 30, 0.9);
+        }
+        
+        .cyber-text {
+            text-shadow: 0 0 5px #00ff9d, 0 0 10px #00ff9d;
+            letter-spacing: 2px;
+        }
+        
+        .glitch-effect {
+            position: relative;
+        }
+        
+        .glitch-effect::before, .glitch-effect::after {
+            content: attr(data-text);
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0.8;
+        }
+        
+        .glitch-effect::before {
+            color: #ff00c1;
+            animation: glitch 3s infinite;
+            z-index: -1;
+        }
+        
+        .glitch-effect::after {
+            color: #00f7ff;
+            animation: glitch 2s infinite reverse;
+            z-index: -2;
+        }
+        
+        @keyframes glitch {
+            0% { transform: translate(0); }
+            20% { transform: translate(-3px, 3px); }
+            40% { transform: translate(-3px, -3px); }
+            60% { transform: translate(3px, 3px); }
+            80% { transform: translate(3px, -3px); }
+            100% { transform: translate(0); }
+        }
+        
+        .neon-btn {
+            background: transparent;
+            border: 2px solid #00ff9d;
+            color: #00ff9d;
+            padding: 10px 25px;
+            font-family: 'Orbitron', sans-serif;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s;
+            box-shadow: 0 0 10px #00ff9d, inset 0 0 10px rgba(0, 255, 157, 0.2);
+        }
+        
+        .neon-btn:hover {
+            background: rgba(0, 255, 157, 0.1);
+            box-shadow: 0 0 20px #00ff9d, inset 0 0 20px rgba(0, 255, 157, 0.4);
+            transform: translateY(-2px);
+        }
+        
+        .neon-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 255, 157, 0.4), transparent);
+            transition: all 0.5s;
+        }
+        
+        .neon-btn:hover::before {
+            left: 100%;
+        }
+        
+        .grid-pattern {
+            background: 
+                linear-gradient(rgba(110, 0, 255, 0.1) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(110, 0, 255, 0.1) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        
+        .snake-segment {
+            background: linear-gradient(135deg, #00ff9d 0%, #00f7ff 100%);
+            border-radius: 3px;
+            box-shadow: 0 0 5px #00ff9d;
+        }
+        
+        .food {
+            background: radial-gradient(circle, #ff00c1 0%, #6e00ff 100%);
+            border-radius: 50%;
+            box-shadow: 0 0 10px #ff00c1;
+            animation: pulse 1.5s infinite alternate;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            100% { transform: scale(1.2); }
+        }
+        
+        #mobile-controls {
+            display: none;
+        }
+        
+        @media (max-width: 768px) {
+            #mobile-controls {
+                display: grid;
+            }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4 grid-pattern">
+    <div class="text-center mb-4">
+        <h1 class="text-4xl md:text-5xl font-bold cyber-text glitch-effect mb-2" data-text="CYBER SNAKE">CYBER SNAKE</h1>
+        <p class="text-lg text-purple-300">Evolve. Consume. Dominate.</p>
+    </div>
+    
+    <div class="flex flex-col md:flex-row items-center gap-8">
+        <div class="flex flex-col items-center">
+            <div class="flex justify-between w-full mb-2">
+                <div class="text-xl cyber-text">
+                    <i class="fas fa-bolt text-yellow-400 mr-2"></i>
+                    <span id="score">0</span>
+                </div>
+                <div class="text-xl cyber-text">
+                    <i class="fas fa-trophy text-purple-400 mr-2"></i>
+                    <span id="high-score">0</span>
+                </div>
+            </div>
+            
+            <div id="game-container" class="relative">
+                <canvas id="game-canvas" width="400" height="400"></canvas>
+                
+                <div id="game-over" class="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-80 hidden">
+                    <h2 class="text-3xl font-bold text-red-400 cyber-text mb-4">GAME OVER</h2>
+                    <p class="text-xl text-white mb-6">Score: <span id="final-score" class="text-green-400">0</span></p>
+                    <button id="restart-btn" class="neon-btn">
+                        <i class="fas fa-sync-alt mr-2"></i> RESTART
+                    </button>
+                </div>
+                
+                <div id="start-screen" class="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-80">
+                    <h2 class="text-3xl font-bold text-green-400 cyber-text mb-4">CYBER SNAKE</h2>
+                    <p class="text-lg text-purple-300 text-center mb-8 px-4">Use arrow keys or swipe to control the neon serpent</p>
+                    <button id="start-btn" class="neon-btn">
+                        <i class="fas fa-play mr-2"></i> START
+                    </button>
+                </div>
+            </div>
+            
+            <div id="mobile-controls" class="mt-4 grid grid-cols-3 gap-2 w-full max-w-md">
+                <div></div>
+                <button id="up-btn" class="neon-btn py-4">
+                    <i class="fas fa-arrow-up"></i>
+                </button>
+                <div></div>
+                <button id="left-btn" class="neon-btn py-4">
+                    <i class="fas fa-arrow-left"></i>
+                </button>
+                <button id="down-btn" class="neon-btn py-4">
+                    <i class="fas fa-arrow-down"></i>
+                </button>
+                <button id="right-btn" class="neon-btn py-4">
+                    <i class="fas fa-arrow-right"></i>
+                </button>
+            </div>
+        </div>
+        
+        <div class="hidden md:block bg-black bg-opacity-50 p-6 rounded-lg border border-purple-500 max-w-md">
+            <h3 class="text-xl font-bold text-green-400 cyber-text mb-4">
+                <i class="fas fa-terminal mr-2"></i> HACKER MANUAL
+            </h3>
+            <ul class="space-y-3 text-purple-200">
+                <li class="flex items-start">
+                    <i class="fas fa-arrow-up text-green-400 mr-2 mt-1"></i>
+                    <span>Use arrow keys to control your cyber serpent</span>
+                </li>
+                <li class="flex items-start">
+                    <i class="fas fa-bullseye text-pink-400 mr-2 mt-1"></i>
+                    <span>Consume the glowing nodes to grow</span>
+                </li>
+                <li class="flex items-start">
+                    <i class="fas fa-skull text-red-400 mr-2 mt-1"></i>
+                    <span>Avoid collisions with walls and yourself</span>
+                </li>
+                <li class="flex items-start">
+                    <i class="fas fa-tachometer-alt text-yellow-400 mr-2 mt-1"></i>
+                    <span>Speed increases every 5 nodes consumed</span>
+                </li>
+            </ul>
+            
+            <div class="mt-6 pt-4 border-t border-purple-800">
+                <h4 class="text-lg font-bold text-blue-400 cyber-text mb-2">
+                    <i class="fas fa-code-branch mr-2"></i> SYSTEM STATS
+                </h4>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <p class="text-sm text-purple-300">Current Speed</p>
+                        <p id="speed-display" class="text-xl text-green-400">1x</p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-purple-300">Nodes Eaten</p>
+                        <p id="nodes-display" class="text-xl text-pink-400">0</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="mt-8 text-xs text-purple-400 text-center">
+        <p>CYBERNETIC SYSTEMS ONLINE | v1.0.0 | TERMINAL: ACTIVE</p>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Game elements
+            const canvas = document.getElementById('game-canvas');
+            const ctx = canvas.getContext('2d');
+            const scoreDisplay = document.getElementById('score');
+            const highScoreDisplay = document.getElementById('high-score');
+            const finalScoreDisplay = document.getElementById('final-score');
+            const startScreen = document.getElementById('start-screen');
+            const gameOverScreen = document.getElementById('game-over');
+            const startBtn = document.getElementById('start-btn');
+            const restartBtn = document.getElementById('restart-btn');
+            const speedDisplay = document.getElementById('speed-display');
+            const nodesDisplay = document.getElementById('nodes-display');
+            
+            // Mobile controls
+            const upBtn = document.getElementById('up-btn');
+            const downBtn = document.getElementById('down-btn');
+            const leftBtn = document.getElementById('left-btn');
+            const rightBtn = document.getElementById('right-btn');
+            
+            // Game settings
+            const gridSize = 20;
+            const gridCount = canvas.width / gridSize;
+            let speed = 150;
+            const speedIncrease = 10;
+            const speedInterval = 5;
+            
+            // Game state
+            let snake = [];
+            let food = {};
+            let direction = 'right';
+            let nextDirection = 'right';
+            let score = 0;
+            let highScore = localStorage.getItem('cyberSnakeHighScore') || 0;
+            let gameInterval;
+            let gameRunning = false;
+            
+            // Initialize game
+            function initGame() {
+                // Set initial snake position (3 segments)
+                snake = [
+                    {x: 5, y: 10},
+                    {x: 4, y: 10},
+                    {x: 3, y: 10}
+                ];
+                
+                // Set initial direction
+                direction = 'right';
+                nextDirection = 'right';
+                
+                // Generate first food
+                generateFood();
+                
+                // Reset score
+                score = 0;
+                scoreDisplay.textContent = score;
+                
+                // Update high score display
+                highScoreDisplay.textContent = highScore;
+                
+                // Reset stats
+                speed = 150;
+                speedDisplay.textContent = '1x';
+                nodesDisplay.textContent = '0';
+                
+                // Start game loop
+                if (gameInterval) clearInterval(gameInterval);
+                gameInterval = setInterval(gameLoop, speed);
+                gameRunning = true;
+            }
+            
+            // Game loop
+            function gameLoop() {
+                moveSnake();
+                checkCollision();
+                checkFood();
+                drawGame();
+            }
+            
+            // Move snake
+            function moveSnake() {
+                // Update direction
+                direction = nextDirection;
+                
+                // Get head position
+                const head = {x: snake[0].x, y: snake[0].y};
+                
+                // Move head based on direction
+                switch (direction) {
+                    case 'up':
+                        head.y--;
+                        break;
+                    case 'down':
+                        head.y++;
+                        break;
+                    case 'left':
+                        head.x--;
+                        break;
+                    case 'right':
+                        head.x++;
+                        break;
+                }
+                
+                // Add new head to beginning of array
+                snake.unshift(head);
+                
+                // Remove tail unless snake ate food (handled in checkFood)
+                snake.pop();
+            }
+            
+            // Check for collisions
+            function checkCollision() {
+                const head = snake[0];
+                
+                // Wall collision
+                if (head.x < 0 || head.x >= gridCount || head.y < 0 || head.y >= gridCount) {
+                    gameOver();
+                    return;
+                }
+                
+                // Self collision
+                for (let i = 1; i < snake.length; i++) {
+                    if (head.x === snake[i].x && head.y === snake[i].y) {
+                        gameOver();
+                        return;
+                    }
+                }
+            }
+            
+            // Check if snake ate food
+            function checkFood() {
+                const head = snake[0];
+                
+                if (head.x === food.x && head.y === food.y) {
+                    // Add new segment to snake
+                    snake.push({...snake[snake.length - 1]});
+                    
+                    // Increase score
+                    score += 10;
+                    scoreDisplay.textContent = score;
+                    
+                    // Update nodes eaten
+                    nodesDisplay.textContent = Math.floor(score / 10);
+                    
+                    // Increase speed every speedInterval foods
+                    if (Math.floor(score / 10) % speedInterval === 0 && Math.floor(score / 10) > 0) {
+                        speed = Math.max(50, speed - speedIncrease);
+                        clearInterval(gameInterval);
+                        gameInterval = setInterval(gameLoop, speed);
+                        
+                        // Update speed display (1x to 5x)
+                        const speedLevel = Math.min(5, Math.floor((150 - speed) / speedIncrease) + 1);
+                        speedDisplay.textContent = `${speedLevel}x`;
+                    }
+                    
+                    // Generate new food
+                    generateFood();
+                }
+            }
+            
+            // Generate food at random position
+            function generateFood() {
+                // Create random position
+                food = {
+                    x: Math.floor(Math.random() * gridCount),
+                    y: Math.floor(Math.random() * gridCount)
+                };
+                
+                // Make sure food doesn't appear on snake
+                for (let segment of snake) {
+                    if (segment.x === food.x && segment.y === food.y) {
+                        return generateFood();
+                    }
+                }
+            }
+            
+            // Draw game
+            function drawGame() {
+                // Clear canvas
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                // Draw grid lines (subtle)
+                ctx.strokeStyle = 'rgba(110, 0, 255, 0.1)';
+                ctx.lineWidth = 0.5;
+                
+                for (let i = 0; i < gridCount; i++) {
+                    // Vertical lines
+                    ctx.beginPath();
+                    ctx.moveTo(i * gridSize, 0);
+                    ctx.lineTo(i * gridSize, canvas.height);
+                    ctx.stroke();
+                    
+                    // Horizontal lines
+                    ctx.beginPath();
+                    ctx.moveTo(0, i * gridSize);
+                    ctx.lineTo(canvas.width, i * gridSize);
+                    ctx.stroke();
+                }
+                
+                // Draw snake
+                snake.forEach((segment, index) => {
+                    // Head is brighter
+                    const isHead = index === 0;
+                    const gradient = ctx.createLinearGradient(
+                        segment.x * gridSize, 
+                        segment.y * gridSize, 
+                        segment.x * gridSize + gridSize, 
+                        segment.y * gridSize + gridSize
+                    );
+                    
+                    if (isHead) {
+                        gradient.addColorStop(0, '#00ff9d');
+                        gradient.addColorStop(1, '#00f7ff');
+                    } else {
+                        gradient.addColorStop(0, '#00cc7a');
+                        gradient.addColorStop(0.5, '#00a3ff');
+                        gradient.addColorStop(1, '#0066ff');
+                    }
+                    
+                    ctx.fillStyle = gradient;
+                    ctx.fillRect(segment.x * gridSize, segment.y * gridSize, gridSize, gridSize);
+                    
+                    // Add inner glow for head
+                    if (isHead) {
+                        ctx.shadowColor = '#00ff9d';
+                        ctx.shadowBlur = 10;
+                        ctx.fillRect(segment.x * gridSize + 3, segment.y * gridSize + 3, gridSize - 6, gridSize - 6);
+                        ctx.shadowBlur = 0;
+                    }
+                });
+                
+                // Draw food
+                const foodGradient = ctx.createRadialGradient(
+                    food.x * gridSize + gridSize/2, 
+                    food.y * gridSize + gridSize/2, 
+                    0,
+                    food.x * gridSize + gridSize/2, 
+                    food.y * gridSize + gridSize/2, 
+                    gridSize/2
+                );
+                foodGradient.addColorStop(0, '#ff00c1');
+                foodGradient.addColorStop(1, '#6e00ff');
+                
+                ctx.fillStyle = foodGradient;
+                ctx.beginPath();
+                ctx.arc(
+                    food.x * gridSize + gridSize/2, 
+                    food.y * gridSize + gridSize/2, 
+                    gridSize/2 - 2, 
+                    0, 
+                    Math.PI * 2
+                );
+                ctx.fill();
+                
+                // Add pulsing glow effect
+                const pulse = 0.2 * Math.sin(Date.now() / 200) + 1;
+                ctx.shadowColor = '#ff00c1';
+                ctx.shadowBlur = 10 * pulse;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+            
+            // Game over
+            function gameOver() {
+                gameRunning = false;
+                clearInterval(gameInterval);
+                
+                // Update high score if needed
+                if (score > highScore) {
+                    highScore = score;
+                    localStorage.setItem('cyberSnakeHighScore', highScore);
+                    highScoreDisplay.textContent = highScore;
+                }
+                
+                // Show final score
+                finalScoreDisplay.textContent = score;
+                
+                // Show game over screen
+                gameOverScreen.classList.remove('hidden');
+            }
+            
+            // Event listeners
+            document.addEventListener('keydown', (e) => {
+                if (!gameRunning) return;
+                
+                switch (e.key) {
+                    case 'ArrowUp':
+                        if (direction !== 'down') nextDirection = 'up';
+                        break;
+                    case 'ArrowDown':
+                        if (direction !== 'up') nextDirection = 'down';
+                        break;
+                    case 'ArrowLeft':
+                        if (direction !== 'right') nextDirection = 'left';
+                        break;
+                    case 'ArrowRight':
+                        if (direction !== 'left') nextDirection = 'right';
+                        break;
+                }
+            });
+            
+            // Touch controls for mobile
+            let touchStartX = 0;
+            let touchStartY = 0;
+            
+            canvas.addEventListener('touchstart', (e) => {
+                if (!gameRunning) return;
+                touchStartX = e.touches[0].clientX;
+                touchStartY = e.touches[0].clientY;
+                e.preventDefault();
+            }, { passive: false });
+            
+            canvas.addEventListener('touchmove', (e) => {
+                if (!gameRunning) return;
+                
+                const touchEndX = e.touches[0].clientX;
+                const touchEndY = e.touches[0].clientY;
+                
+                const dx = touchEndX - touchStartX;
+                const dy = touchEndY - touchStartY;
+                
+                // Determine primary direction of swipe
+                if (Math.abs(dx) > Math.abs(dy)) {
+                    // Horizontal swipe
+                    if (dx > 0 && direction !== 'left') {
+                        nextDirection = 'right';
+                    } else if (dx < 0 && direction !== 'right') {
+                        nextDirection = 'left';
+                    }
+                } else {
+                    // Vertical swipe
+                    if (dy > 0 && direction !== 'up') {
+                        nextDirection = 'down';
+                    } else if (dy < 0 && direction !== 'down') {
+                        nextDirection = 'up';
+                    }
+                }
+                
+                e.preventDefault();
+            }, { passive: false });
+            
+            // Button controls
+            startBtn.addEventListener('click', () => {
+                startScreen.classList.add('hidden');
+                initGame();
+            });
+            
+            restartBtn.addEventListener('click', () => {
+                gameOverScreen.classList.add('hidden');
+                initGame();
+            });
+            
+            // Mobile button controls
+            upBtn.addEventListener('click', () => {
+                if (gameRunning && direction !== 'down') nextDirection = 'up';
+            });
+            
+            downBtn.addEventListener('click', () => {
+                if (gameRunning && direction !== 'up') nextDirection = 'down';
+            });
+            
+            leftBtn.addEventListener('click', () => {
+                if (gameRunning && direction !== 'right') nextDirection = 'left';
+            });
+            
+            rightBtn.addEventListener('click', () => {
+                if (gameRunning && direction !== 'left') nextDirection = 'right';
+            });
+            
+            // Initial high score display
+            highScoreDisplay.textContent = highScore;
+            
+            // Draw initial screen
+            drawGame();
+        });
+    </script>
+</body>
+</html>
